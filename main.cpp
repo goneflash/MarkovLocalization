@@ -20,14 +20,9 @@ int main(int argc, char **argv){
 	read_log_data(log_name.c_str(), logData);
 	read_beesoft_map(map_name.c_str(), &map);
 
-	if (DEBUG){
-
-	}
 	// Initialization
 	int num_particles = 1000;
-	MonteCarloLocalization localizer(map.cells, map.size_x, map.size_y, 
-		num_particles, map.max_x, map.min_x, map.max_y, 
-		map.min_y, 0, 180);
+	MonteCarloLocalization localizer;
 
 	// Initialize Particle Filter
 

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include "MonteCarloLocalization.h"
+#include "bee-map.h"
 
 using namespace std;
 
@@ -19,27 +20,10 @@ MonteCarloLocalization::~MonteCarloLocalization(){
 MonteCarloLocalization::MonteCarloLocalization(double** map, int sizeX, int sizeY, 
 	int num_particles, double maxX, double minX, double maxY, 
 		double minY, double maxTheta, double minTheta){
-	_num_particles = num_particles;
-	_particles = new particle[_num_particles];
-	init_map(map, sizeX, sizeY);
-
-	_maxX = maxX;
-	_maxY = maxY;
-	_maxTheta = maxTheta;
-	_minX = minX;
-	_minY = minY;
-	_minTheta = minTheta;
-	_init_particles();
 }
 
 void MonteCarloLocalization::init_map(double** map, int sizeX, int sizeY){
-	_map = new double*[sizeX];
-	for (unsigned int i = 0; i < sizeX; i++)
-		_map[i] = new double[sizeY];
 
-	for (int i = 0; i < sizeX; i++)
-		for (int j = 0; j < sizeY; j++)
-			_map[i][j] = map[i][j];
 }
 
 void MonteCarloLocalization::_init_particles(){
