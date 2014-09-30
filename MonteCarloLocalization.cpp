@@ -20,6 +20,7 @@ MonteCarloLocalization::MonteCarloLocalization(){
 	_alpha[0] = 0.1;_alpha[1] = 0.1;
 	_alpha[2] = 0.1;_alpha[3] = 0.1;
 
+	_threshold = 0.7;
 	srand ( time(NULL) );
 }
 
@@ -44,8 +45,10 @@ void MonteCarloLocalization::init_map(map_type map){
 	float max_value = -10, min_value = 10;
 	for (unsigned int i = 0; i < _map_image.rows; i++)
 		for (unsigned int j = 0; j < _map_image.cols; j++){
-			if (_map.cells[i][j] >= 0.0)
-				_map_image.at<float>(i, j) = 1 - _map.cells[i][j];
+			if (_map.cells[i][j] >= 0.0 && _map.cells[i][j] <= 1.0)
+				_map_image.at<float>(i, j) = _map.cells[i][j];
+			else
+				_map_image.at<float>(i, j) = 0;
 			max_value = max_value >  _map.cells[i][j] ? max_value : _map.cells[i][j];
 			min_value = min_value <  _map.cells[i][j] ? min_value : _map.cells[i][j];
 		}
@@ -67,8 +70,8 @@ void MonteCarloLocalization::init_particles(int num_particles){
 		_particles[i].x = rand() / (float)RAND_MAX * (_map.max_x - _map.min_x)  + _map.min_x;
 		_particles[i].y = rand() / (float)RAND_MAX * (_map.max_y - _map.min_y)  + _map.min_y;
 		_particles[i].theta = rand() / (float)RAND_MAX * 2 * PI;
-		} while (_map.cells[(int)_particles[i].x][(int)_particles[i].y] == -1);// || 
-			// _map.cells[(int)_particles[i].x][(int)_particles[i].y] >= 0.5);
+		} while (_map.cells[(int)_particles[i].x][(int)_particles[i].y] == -1 || 
+			_map.cells[(int)_particles[i].x][(int)_particles[i].y] <= 0.8);
 #ifdef DEBUG
 		cout << "Particle: " << (int)_particles[i].x << " " << (int)_particles[i].y << " ";
 		cout << _particles[i].theta << " Prob " << _map.cells[(int)_particles[i].x][(int)_particles[i].y] << endl;
@@ -117,6 +120,11 @@ void MonteCarloLocalization::update_observation(measurement reading){
 float MonteCarloLocalization::_cal_observation_weight(measurement reading, state s){
 	// 25 cm offset
 	float x = s.x + 2.5 * cos(s.theta), y = s.y + 2.5 * sin(s.theta);
+	// If wrong position
+	if (x < _map.min_x || x > _map.max_x || 
+		y < _map.min_y || y > _map.max_y || 
+		_map.cells[(int)x][(int)y] == -1 || _map.cells[(int)x][(int)y] < 0.8)
+		return 0.0;	
 	// process each angle
 	float match_score = 0;
 	for (unsigned int i = 0; i < RANGE_LEN; i++){
@@ -130,8 +138,7 @@ float MonteCarloLocalization::_cal_observation_weight(measurement reading, state
 		// TODO:
 		// Try other methods for example sum of log
 		// sum of 1 - weight 
-		float threshold = 0.5;
-		match_score += _map.cells[(int)x_end][(int)y_end] > threshold ? 1 : 0;
+		match_score += _map.cells[(int)x_end][(int)y_end] < _threshold ? 1 : 0;
 	}
 	return match_score;
 }
@@ -199,7 +206,7 @@ void MonteCarloLocalization::_visualize_particles(){
   	}
   	// circle( image, Point( 200, 200 ), 32.0, Scalar( 0, 0, 255 ), 1, 8 );
   	imshow("Image", new_image);
-	waitKey( 0 );
+	waitKey( 10 );
 	new_image = Mat();
 }
 

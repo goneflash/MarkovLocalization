@@ -92,7 +92,7 @@ int read_beesoft_map(const char *mapName, map_type *map)
 					map->min_y = y;
 				else if(y > map->max_y)
 					map->max_y = y;
-				map->cells[x][y] = 1 - temp;	   
+				map->cells[x][y] = temp;	   
 			}
 #ifdef DEBUG
 			printf("%e ",map->cells[x][y]);

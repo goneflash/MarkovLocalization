@@ -51,6 +51,8 @@ protected:
 	map_type _map;
 
 	float _alpha[4];
+	float _threshold;
+
 	state _sample_motion_model_odometry(control ctrl, state old_state);
 	float _sample_normal_distribution(float b);
 	float _cal_observation_weight(measurement reading, state particle_state);
