@@ -48,9 +48,25 @@ int main(int argc, char **argv){
 	localizer.init_parameters(alpha);
 
 	// Main Loop
+	for (unsigned int i = 0; i < logData.size(); i++){
+		cout << "Processing frame at: " << logData[i].ts << " " << i << "/" << logData.size() << endl;
+		control ctrl;
+		ctrl.x = logData[i].x; ctrl.y = logData[i].y; ctrl.theta = logData[i].theta;
+	 	ctrl.x_prime = logData[i].xl; ctrl.y_prime = logData[i].yl; ctrl.theta_prime = logData[i].thetal;
+		localizer.update_motion(ctrl);
 
+		if (logData[i].type != LASER_DATA)
+			continue;
 
-	// update_motion(control ctrl)
+		measurement reading;
+		for (unsigned int angle = 0; angle < RANGE_LEN; angle++)
+			reading.r[angle] = logData[i].r[angle];
+
+		// TODO
+		// not always resample
+
+		localizer.update_observation(reading);
+	}
 
 	// Clean Up
 	free(map.cells);

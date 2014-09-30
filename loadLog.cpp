@@ -30,7 +30,7 @@ int read_log_data(const char *logName, vector<log_type> & logData){
 			ss >> data.theta >> data.ts;
 		}
 		else if (line[0] == 'L'){
-			data.r = new double[RANGE_LEN];
+			data.r = new float[RANGE_LEN];
 			data.type = LASER_DATA;
 			ss >> data.x >> data.y >> data.theta;
 			ss >> data.xl >> data.yl >> data.thetal;

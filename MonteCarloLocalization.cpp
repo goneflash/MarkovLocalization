@@ -62,7 +62,8 @@ void MonteCarloLocalization::init_particles(int num_particles){
 		_particles[i].x = rand() / (float)RAND_MAX * (_map.max_x - _map.min_x)  + _map.min_x;
 		_particles[i].y = rand() / (float)RAND_MAX * (_map.max_y - _map.min_y)  + _map.min_y;
 		_particles[i].theta = rand() / (float)RAND_MAX * 2 * PI;
-		} while (_map.cells[(int)_particles[i].x][(int)_particles[i].y] < 0.2);
+		} while (_map.cells[(int)_particles[i].x][(int)_particles[i].y] < 0 || 
+			_map.cells[(int)_particles[i].x][(int)_particles[i].y] >= 1.0);
 #ifdef DEBUG
 		cout << "Particle: " << (int)_particles[i].x << " " << (int)_particles[i].y << " ";
 		cout << _particles[i].theta << " Prob " << _map.cells[(int)_particles[i].x][(int)_particles[i].y] << endl;
@@ -78,11 +79,86 @@ void MonteCarloLocalization::init_parameters(float alpha[4]){
 
 void MonteCarloLocalization::update_motion(control ctrl){
 	for (unsigned int i = 0; i < _num_particles; i++){
-		state s;
-		s.x = _particles[i].x; s.y = _particles[i].y; s.theta = _particles[i].theta;
+		state s = {_particles[i].x, _particles[i].y, _particles[i].theta};
 		s = _sample_motion_model_odometry(ctrl, s);
 		_particles[i].x = s.x; _particles[i].y = s.y; _particles[i].theta = s.theta;
+
+		// TODO:
+		// If out of range or at -1 prob cell
 	}
+
+	_visualize_particles();
+}
+
+void MonteCarloLocalization::update_observation(measurement reading){
+	float weight_sum = 0;
+	for (unsigned int i = 0; i < _num_particles; i++){
+		state s = {_particles[i].x, _particles[i].y, _particles[i].theta}; 
+		_particles[i].weight = _cal_observation_weight(reading, s);
+		weight_sum += _particles[i].weight;		
+	}
+	// Normalize weights
+	for (unsigned int i = 0; i < _num_particles; i++)
+		_particles[i].weight /= weight_sum;
+
+	_low_variance_sampler();
+
+	// TODO:
+	// Try other resampling method
+}
+
+float MonteCarloLocalization::_cal_observation_weight(measurement reading, state s){
+	// 25 cm offset
+	float x = s.x + 2.5 * cos(s.theta), y = s.y + 2.5 * sin(s.theta);
+	// process each angle
+	float match_score = 0;
+	for (unsigned int i = 0; i < RANGE_LEN; i++){
+		float angle = (float)i * PI / 180 + s.theta;
+		float x_end = reading.r[i] * cos(angle - PI / 2) / 10 + x;
+		float y_end = reading.r[i] * sin(angle - PI / 2) / 10 + y;
+		if (x_end < _map.min_x || x_end > _map.max_x || 
+			y_end < _map.min_y || y_end > _map.max_y)
+			continue;
+
+		// TODO:
+		// Try other methods for example sum of log
+		// sum of 1 - weight 
+		float threshold = 0.5;
+		match_score += _map.cells[(int)x_end][(int)y_end] > 0.5 ? 1 : 0;
+	}
+	return match_score;
+}
+
+void MonteCarloLocalization::_low_variance_sampler(){
+	particle* new_pars = new particle[_num_particles];
+	// create a random value to start
+	float r = rand() / (float)RAND_MAX / _num_particles; 
+	int idx = 0;
+	float current_weight = _particles[0].weight;
+	for (unsigned int i = 0; i < _num_particles; i++){
+		float now_total_weight = r + (float)i / _num_particles;
+		while (current_weight < now_total_weight){
+			idx++;
+			current_weight += _particles[idx].weight; 
+		}
+		new_pars[i] = _particles[idx];
+	}
+#ifdef DEBUG
+	cout << "r is " << r << endl;
+	for (unsigned int i = 0; i < _num_particles; i++){
+		cout << "Particle: " << (int)_particles[i].x << " " << (int)_particles[i].y << " ";
+		cout << _particles[i].theta << " Prob " << _particles[i].weight << endl;
+	}
+#endif
+	delete _particles;
+	_particles = new_pars;
+#ifdef DEBUG
+	cout << "After resampling:" << endl;
+	for (unsigned int i = 0; i < _num_particles; i++){
+		cout << "Particle: " << (int)_particles[i].x << " " << (int)_particles[i].y << " ";
+		cout << _particles[i].theta << " Prob " << _particles[i].weight << endl;
+	}
+#endif
 }
 
 state MonteCarloLocalization::_sample_motion_model_odometry(control ctrl, state old_state){
@@ -94,11 +170,14 @@ state MonteCarloLocalization::_sample_motion_model_odometry(control ctrl, state 
 	float d_tran_prime = d_tran - _sample_normal_distribution(_alpha[3]*d_tran + _alpha[4]*(d_rot1 + d_rot2));
 	float d_rot2_prime = d_rot2 - _sample_normal_distribution(_alpha[1]*d_rot2 + _alpha[2]*d_tran);
 
+	// TODO:
+	// Try other distribution, triangle distribution
+
 	state new_state;
-	// new_state.x = old_state.x + (d_tran_prime / 10) * cos(old_state.theta + d_rot1_prime);
-	// new_state.y = old_state.y + (d_tran_prime / 10) * sin(old_state.theta + d_rot1_prime);
-	new_state.x = old_state.x + d_tran_prime * cos(old_state.theta + d_rot1_prime);
-	new_state.y = old_state.y + d_tran_prime * sin(old_state.theta + d_rot1_prime);
+	new_state.x = old_state.x + (d_tran_prime / 10) * cos(old_state.theta + d_rot1_prime);
+	new_state.y = old_state.y + (d_tran_prime / 10) * sin(old_state.theta + d_rot1_prime);
+	// new_state.x = old_state.x + d_tran_prime * cos(old_state.theta + d_rot1_prime);
+	// new_state.y = old_state.y + d_tran_prime * sin(old_state.theta + d_rot1_prime);
 	new_state.theta = old_state.theta + d_rot1_prime + d_rot2_prime;
 
 	return new_state;
@@ -118,6 +197,7 @@ float MonteCarloLocalization::_sample_normal_distribution(float b){
 
 void MonteCarloLocalization::_visualize_particles(){
   	// Draw a circle
+  	cout << "draw";
   	Mat new_image;
   	cvtColor(_map_image, new_image, CV_GRAY2RGB);
   	for (unsigned int i = 0; i < _num_particles; i++){

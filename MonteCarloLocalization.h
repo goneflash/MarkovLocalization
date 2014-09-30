@@ -10,6 +10,7 @@
 using namespace std;
 
 #define PI 3.1415926
+#define RANGE_LEN 180
 
 typedef struct state{
 	float x, y, theta;
@@ -17,7 +18,7 @@ typedef struct state{
 
 typedef struct particle{
 	float x, y, theta;
-	double weight;
+	float weight;
 } particle;
 
 typedef struct control{
@@ -25,7 +26,9 @@ typedef struct control{
 	float x_prime, y_prime, theta_prime;
 } control;
 
-
+typedef struct measurement{
+	float r[RANGE_LEN];
+} measurement;
 
 class MonteCarloLocalization{
 public:
@@ -39,6 +42,7 @@ public:
 
 	// Update
 	void update_motion(control ctrl);
+	void update_observation(measurement reading);
 
 protected:
 	int _num_particles;
@@ -49,6 +53,8 @@ protected:
 	float _alpha[4];
 	state _sample_motion_model_odometry(control ctrl, state old_state);
 	float _sample_normal_distribution(float b);
+	float _cal_observation_weight(measurement reading, state particle_state);
+	void _low_variance_sampler();
 
 #ifdef VIZ
 	Mat _map_image;

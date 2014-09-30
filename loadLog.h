@@ -12,10 +12,10 @@ enum LogType
 
 typedef struct {
 	LogType type;
-	double x, y, xl, yl;
-	double theta, thetal;
+	float x, y, xl, yl;
+	float theta, thetal;
 	double ts;
-	double* r; 
+	float* r; 
 } log_type;
 
 int read_log_data(const char *logName, vector<log_type> & logData);
