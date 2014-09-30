@@ -17,11 +17,20 @@ using namespace std;
 MonteCarloLocalization::MonteCarloLocalization(){
 	_num_particles = 100;
 	_particles = new particle[_num_particles];
-	_alpha[0] = 0.1;_alpha[1] = 0.1;
-	_alpha[2] = 0.1;_alpha[3] = 0.1;
+	_alpha[0] = 0.01;_alpha[1] = 0.01;
+	_alpha[2] = 0.01;_alpha[3] = 0.01;
 
 	_threshold = 0.7;
-	srand ( time(NULL) );
+	_zhit = 0.8;
+	_znoise = 0.1;
+	_zshort = 0.095;
+	_zmax = 0.005;
+	_hit_sigma = 20;
+	_lamda_short = 0.0005;
+	_max_laser_range = 800.0;
+	_min_step = 1;
+
+	srand(time(NULL));
 }
 
 MonteCarloLocalization::~MonteCarloLocalization(){
@@ -31,6 +40,9 @@ MonteCarloLocalization::~MonteCarloLocalization(){
 
 void MonteCarloLocalization::init_map(map_type map){
 	_map = map;
+	
+	// TODO:
+	// smooth map
 
 #ifdef VIZ
 	_map_image = Mat::zeros( _map.size_x, map.size_y, CV_32FC1 );
@@ -71,10 +83,10 @@ void MonteCarloLocalization::init_particles(int num_particles){
 		_particles[i].y = rand() / (float)RAND_MAX * (_map.max_y - _map.min_y)  + _map.min_y;
 		_particles[i].theta = rand() / (float)RAND_MAX * 2 * PI;
 		} while (_map.cells[(int)_particles[i].x][(int)_particles[i].y] == -1 || 
-			_map.cells[(int)_particles[i].x][(int)_particles[i].y] <= 0.8);
+			_map.cells[(int)_particles[i].x][(int)_particles[i].y] <= 0.9);
 #ifdef DEBUG
-		cout << "Particle: " << (int)_particles[i].x << " " << (int)_particles[i].y << " ";
-		cout << _particles[i].theta << " Prob " << _map.cells[(int)_particles[i].x][(int)_particles[i].y] << endl;
+		// cout << "Particle: " << (int)_particles[i].x << " " << (int)_particles[i].y << " ";
+		// cout << _particles[i].theta << " Prob " << _map.cells[(int)_particles[i].x][(int)_particles[i].y] << endl;
 #endif
 	}
 	_visualize_particles();
@@ -102,7 +114,7 @@ void MonteCarloLocalization::update_observation(measurement reading){
 	float weight_sum = 0;
 	for (unsigned int i = 0; i < _num_particles; i++){
 		state s = {_particles[i].x, _particles[i].y, _particles[i].theta}; 
-		_particles[i].weight = _cal_observation_weight(reading, s);
+		_particles[i].weight = _cal_weight_beam_range_model(reading, s);
 		weight_sum += _particles[i].weight;		
 	}
 	// Normalize weights
@@ -123,16 +135,19 @@ float MonteCarloLocalization::_cal_observation_weight(measurement reading, state
 	// If wrong position
 	if (x < _map.min_x || x > _map.max_x || 
 		y < _map.min_y || y > _map.max_y || 
-		_map.cells[(int)x][(int)y] == -1 || _map.cells[(int)x][(int)y] < 0.8)
+		_map.cells[(int)x][(int)y] == -1 || _map.cells[(int)x][(int)y] < _threshold)
 		return 0.0;	
 	// process each angle
 	float match_score = 0;
 	for (unsigned int i = 0; i < RANGE_LEN; i++){
 		float angle = (float)i * PI / 180 + s.theta;
-		float x_end = reading.r[i] * cos(angle - PI / 2) / 10 + x;
-		float y_end = reading.r[i] * sin(angle - PI / 2) / 10 + y;
+		float x_end = reading.r[i] * cos(angle - PI / 2) + x;
+		float y_end = reading.r[i] * sin(angle - PI / 2) + y;
+
+		// cout << "laser end " << x_end << " " << y_end << endl;
+
 		if (x_end < _map.min_x || x_end > _map.max_x || 
-			y_end < _map.min_y || y_end > _map.max_y)
+			y_end < _map.min_y || y_end > _map.max_y || _map.cells[(int)x_end][(int)y_end] <= 0)
 			continue;
 
 		// TODO:
@@ -141,6 +156,81 @@ float MonteCarloLocalization::_cal_observation_weight(measurement reading, state
 		match_score += _map.cells[(int)x_end][(int)y_end] < _threshold ? 1 : 0;
 	}
 	return match_score;
+}
+
+float MonteCarloLocalization::_cal_weight_beam_range_model(measurement reading, state particle_state){
+	
+	float weight = 0;
+	float x = particle_state.x + 2.5 * cos(particle_state.theta);
+	float y = particle_state.y + 2.5 * sin(particle_state.theta);
+
+	// If wrong position
+	if (x < _map.min_x || x > _map.max_x || 
+		y < _map.min_y || y > _map.max_y || 
+		_map.cells[(int)x][(int)y] <= 0 || _map.cells[(int)x][(int)y] < _threshold)
+		return 0.0;	
+
+	for (unsigned int i = 0; i < RANGE_LEN; i++){
+		float angle = (float)i * PI / 180 + particle_state.theta;
+		float x_end = reading.r[i] * cos(angle - PI / 2) + x;
+		float y_end = reading.r[i] * sin(angle - PI / 2) + y;
+		if (x_end < _map.min_x || x_end > _map.max_x || 
+			y_end < _map.min_y || y_end > _map.max_y || _map.cells[(int)x_end][(int)y_end] <= 0)
+			continue;
+
+		float dist_exp = _expected_distance(particle_state, reading.r[i], angle);
+
+		float likelihood = (_zhit * _sensor_noise(reading.r[i], dist_exp) +
+			_znoise * _random_noise() +
+			_zshort * _unexpected_object(reading.r[i], dist_exp) +
+			_zmax * _max_noise(reading.r[i]));
+		
+		weight += log(likelihood);//	(1./len(expected_distances))
+	}
+	return weight;
+}
+
+float MonteCarloLocalization::_expected_distance(state s, float laser, float angle){
+	// use ray tracing
+	// 25 cm offset
+	float x = s.x + 2.5 * cos(s.theta), y = s.y + 2.5 * sin(s.theta);
+	float max_laser = laser, min_laser = 0;
+
+	// cout << " actual " << laser;
+
+	while (max_laser - min_laser > _min_step){
+		float dist = (max_laser + min_laser) / 2;
+
+		// cout << " mid " << dist; 
+
+		float x_end = dist * cos(angle - PI / 2) / 10 + x;
+		float y_end = dist * sin(angle - PI / 2) / 10 + y;
+		if (_map.cells[(int)x_end][(int)y_end] < _threshold)
+			max_laser = dist;
+		else
+			min_laser = dist;
+	}
+
+	// cout << endl;
+
+	return (max_laser + min_laser) / 2;
+}
+
+float MonteCarloLocalization::_sensor_noise(float laser_data, float dist_exp){
+	float normalizer = 1.0 / (_hit_sigma * sqrt(2 * PI));
+	return normalizer * exp(-0.5 * ((laser_data - dist_exp) / _hit_sigma) * ((laser_data - dist_exp) / _hit_sigma));
+}
+float MonteCarloLocalization::_random_noise(){
+	return 1.0 / _max_laser_range;
+}
+float MonteCarloLocalization::_unexpected_object(float laser_data, float dist_exp){
+	float normalizer = 1.0 / (1 - exp(-_lamda_short * dist_exp));
+	if (laser_data < dist_exp)
+		return (_lamda_short * normalizer * exp(-_lamda_short * laser_data));
+	return 0;
+}
+float MonteCarloLocalization::_max_noise(float laser_data){
+	return (fabs(laser_data - _max_laser_range) <= 0.001 ? 1 : 0);
 }
 
 void MonteCarloLocalization::_low_variance_sampler(){

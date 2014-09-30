@@ -52,10 +52,21 @@ protected:
 
 	float _alpha[4];
 	float _threshold;
+	float _zhit, _znoise, _zshort, _zmax;
+	float _hit_sigma, _lamda_short;
+	float _max_laser_range;
+	float _min_step;
 
 	state _sample_motion_model_odometry(control ctrl, state old_state);
-	float _sample_normal_distribution(float b);
 	float _cal_observation_weight(measurement reading, state particle_state);
+	float _cal_weight_beam_range_model(measurement reading, state particle_state);
+
+	float _sample_normal_distribution(float b);
+	float _sensor_noise(float laser_data, float dist_exp);
+	float _random_noise();
+	float _unexpected_object(float laser_data, float dist_exp);
+	float _max_noise(float laser_data);
+	float _expected_distance(state particle_state, float laser, float angle);
 	void _low_variance_sampler();
 	void _evaluate_convergence();
 

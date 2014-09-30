@@ -34,8 +34,8 @@ int main(int argc, char **argv){
 	
 	// Check Log Information
 	cout << "Log size: " << logData.size() << endl;
-	for (unsigned int i = 0; i < logData.size(); i++)
-		cout << logData[i].type << " " << logData[i].ts << " " << logData[i].x << " " << logData[i].y << endl;
+	// for (unsigned int i = 0; i < logData.size(); i++)
+	// 		cout << logData[i].type << " " << logData[i].ts << " " << logData[i].x << " " << logData[i].y << endl;
 #endif
 
 	// Initialization
@@ -63,8 +63,9 @@ int main(int argc, char **argv){
 		cout << "It's laser data." << endl;
 
 
-		for (unsigned int angle = 0; angle < 10; angle++){
-			reading.r[angle] = logData[i].r[angle];
+		for (unsigned int angle = 0; angle < 180; angle++){
+			reading.r[angle] = logData[i].r[angle] / 10;
+			// cout << "reading " << reading.r[angle] << " log " << logData[i].r[angle] << endl;
 		}
 
 		// TODO
