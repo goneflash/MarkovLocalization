@@ -12,8 +12,6 @@
 
 #include "bee-map.h"
 
-
-
 // #define DEBUG
 
 void new_hornetsoft_map(map_type *map, int size_x, int size_y)

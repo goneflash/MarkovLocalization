@@ -4,6 +4,11 @@
 #include "loadLog.h"
 #include "MonteCarloLocalization.h"
 
+
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+using namespace cv;
+
 using namespace std;
 
 #define DEBUG
@@ -26,18 +31,29 @@ int main(int argc, char **argv){
 	cout << "Min_Max X " << map.min_x << " " << map.max_x << endl;
 	cout << "Min_Max Y " << map.min_y << " " << map.max_y << endl;
 	cout << "Offset X " << map.offset_x << " Offset Y " << map.offset_y << endl;
+	
+	// Check Log Information
+	cout << "Log size: " << logData.size() << endl;
+	for (unsigned int i = 0; i < logData.size(); i++)
+		cout << logData[i].ts << " " << logData[i].x << " " << logData[i].y << endl;
 #endif
+
 	// Initialization
 	int num_particles = 10;
+	float alpha[4] = {0.1, 0.1, 0.1, 0.1};
+	
 	MonteCarloLocalization localizer;
 	localizer.init_map(map);
 	localizer.init_particles(num_particles); 
-
-	// Initialize Particle Filter
-
-
+	localizer.init_parameters(alpha);
 
 	// Main Loop
 
 
+	// update_motion(control ctrl)
+
+	// Clean Up
+	free(map.cells);
+
+	return 0;
 }
