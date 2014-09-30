@@ -35,11 +35,11 @@ int main(int argc, char **argv){
 	// Check Log Information
 	cout << "Log size: " << logData.size() << endl;
 	for (unsigned int i = 0; i < logData.size(); i++)
-		cout << logData[i].ts << " " << logData[i].x << " " << logData[i].y << endl;
+		cout << logData[i].type << " " << logData[i].ts << " " << logData[i].x << " " << logData[i].y << endl;
 #endif
 
 	// Initialization
-	int num_particles = 10;
+	int num_particles = 1000;
 	float alpha[4] = {0.1, 0.1, 0.1, 0.1};
 	
 	MonteCarloLocalization localizer;
@@ -48,6 +48,8 @@ int main(int argc, char **argv){
 	localizer.init_parameters(alpha);
 
 	// Main Loop
+	measurement reading;
+	reading.r = new float[RANGE_LEN];
 	for (unsigned int i = 0; i < logData.size(); i++){
 		cout << "Processing frame at: " << logData[i].ts << " " << i << "/" << logData.size() << endl;
 		control ctrl;
@@ -55,12 +57,16 @@ int main(int argc, char **argv){
 	 	ctrl.x_prime = logData[i].xl; ctrl.y_prime = logData[i].yl; ctrl.theta_prime = logData[i].thetal;
 		localizer.update_motion(ctrl);
 
+
+		// cout << "data type " << logData[i].type << endl;
 		if (logData[i].type != LASER_DATA)
 			continue;
+		cout << "It's laser data." << endl;
 
-		measurement reading;
-		for (unsigned int angle = 0; angle < RANGE_LEN; angle++)
+
+		for (unsigned int angle = 0; angle < 10; angle++){
 			reading.r[angle] = logData[i].r[angle];
+		}
 
 		// TODO
 		// not always resample
@@ -70,6 +76,7 @@ int main(int argc, char **argv){
 
 	// Clean Up
 	free(map.cells);
+	// delete reading.r;
 
 	return 0;
 }

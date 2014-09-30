@@ -24,7 +24,8 @@ MonteCarloLocalization::MonteCarloLocalization(){
 }
 
 MonteCarloLocalization::~MonteCarloLocalization(){
-	delete _particles;
+	delete[] _particles;
+	_map_image = Mat();
 }
 
 void MonteCarloLocalization::init_map(map_type map){
@@ -40,12 +41,16 @@ void MonteCarloLocalization::init_map(map_type map){
 	cout << "Channels: " << _map_image.channels() << endl;
 
 	// unsigned char *imgMat = (unsigned char*)(image.data);
+	float max_value = -10, min_value = 10;
 	for (unsigned int i = 0; i < _map_image.rows; i++)
 		for (unsigned int j = 0; j < _map_image.cols; j++){
-			if (_map.cells[i][j] > 0.0)
-				_map_image.at<float>(i, j) = _map.cells[i][j]; 
+			if (_map.cells[i][j] >= 0.0)
+				_map_image.at<float>(i, j) = 1 - _map.cells[i][j];
+			max_value = max_value >  _map.cells[i][j] ? max_value : _map.cells[i][j];
+			min_value = min_value <  _map.cells[i][j] ? min_value : _map.cells[i][j];
 		}
 #ifdef DEBUG
+	cout << "Max Value " << max_value << " Min Value " << min_value << endl;
 	imshow("Image", _map_image);
 	waitKey( 0 );
 #endif
@@ -54,7 +59,7 @@ void MonteCarloLocalization::init_map(map_type map){
 
 void MonteCarloLocalization::init_particles(int num_particles){
 	_num_particles = num_particles;
-	delete _particles;
+	delete[] _particles;
 	_particles = new particle[_num_particles];
 	// Randomly throw particles
 	for (unsigned int i = 0; i < _num_particles; i++){
@@ -62,8 +67,8 @@ void MonteCarloLocalization::init_particles(int num_particles){
 		_particles[i].x = rand() / (float)RAND_MAX * (_map.max_x - _map.min_x)  + _map.min_x;
 		_particles[i].y = rand() / (float)RAND_MAX * (_map.max_y - _map.min_y)  + _map.min_y;
 		_particles[i].theta = rand() / (float)RAND_MAX * 2 * PI;
-		} while (_map.cells[(int)_particles[i].x][(int)_particles[i].y] < 0 || 
-			_map.cells[(int)_particles[i].x][(int)_particles[i].y] >= 1.0);
+		} while (_map.cells[(int)_particles[i].x][(int)_particles[i].y] == -1);// || 
+			// _map.cells[(int)_particles[i].x][(int)_particles[i].y] >= 0.5);
 #ifdef DEBUG
 		cout << "Particle: " << (int)_particles[i].x << " " << (int)_particles[i].y << " ";
 		cout << _particles[i].theta << " Prob " << _map.cells[(int)_particles[i].x][(int)_particles[i].y] << endl;
@@ -105,6 +110,8 @@ void MonteCarloLocalization::update_observation(measurement reading){
 
 	// TODO:
 	// Try other resampling method
+
+	_evaluate_convergence();
 }
 
 float MonteCarloLocalization::_cal_observation_weight(measurement reading, state s){
@@ -124,7 +131,7 @@ float MonteCarloLocalization::_cal_observation_weight(measurement reading, state
 		// Try other methods for example sum of log
 		// sum of 1 - weight 
 		float threshold = 0.5;
-		match_score += _map.cells[(int)x_end][(int)y_end] > 0.5 ? 1 : 0;
+		match_score += _map.cells[(int)x_end][(int)y_end] > threshold ? 1 : 0;
 	}
 	return match_score;
 }
@@ -143,22 +150,8 @@ void MonteCarloLocalization::_low_variance_sampler(){
 		}
 		new_pars[i] = _particles[idx];
 	}
-#ifdef DEBUG
-	cout << "r is " << r << endl;
-	for (unsigned int i = 0; i < _num_particles; i++){
-		cout << "Particle: " << (int)_particles[i].x << " " << (int)_particles[i].y << " ";
-		cout << _particles[i].theta << " Prob " << _particles[i].weight << endl;
-	}
-#endif
-	delete _particles;
-	_particles = new_pars;
-#ifdef DEBUG
-	cout << "After resampling:" << endl;
-	for (unsigned int i = 0; i < _num_particles; i++){
-		cout << "Particle: " << (int)_particles[i].x << " " << (int)_particles[i].y << " ";
-		cout << _particles[i].theta << " Prob " << _particles[i].weight << endl;
-	}
-#endif
+	for (unsigned int i = 0; i < _num_particles; i++)
+		_particles[i] = new_pars[i];
 }
 
 state MonteCarloLocalization::_sample_motion_model_odometry(control ctrl, state old_state){
@@ -196,9 +189,9 @@ float MonteCarloLocalization::_sample_normal_distribution(float b){
 #ifdef VIZ
 
 void MonteCarloLocalization::_visualize_particles(){
-  	// Draw a circle
-  	cout << "draw";
+  	// Draw circles
   	Mat new_image;
+  	_map_image.clone();
   	cvtColor(_map_image, new_image, CV_GRAY2RGB);
   	for (unsigned int i = 0; i < _num_particles; i++){
   		// circle(Mat& img, Point center, int radius, const Scalar& color, int thickness=1, int lineType=8, int shift=0)
@@ -207,6 +200,23 @@ void MonteCarloLocalization::_visualize_particles(){
   	// circle( image, Point( 200, 200 ), 32.0, Scalar( 0, 0, 255 ), 1, 8 );
   	imshow("Image", new_image);
 	waitKey( 0 );
+	new_image = Mat();
+}
+
+void MonteCarloLocalization::_evaluate_convergence(){
+	float mean_x = 0, mean_y = 0;
+	for (unsigned int i = 0; i < _num_particles; i++){
+		mean_x += _particles[i].x;
+		mean_y += _particles[i].y;
+	}
+	mean_x /= _num_particles;
+	mean_y /= _num_particles;
+	float std_x = 0, std_y = 0;
+	for (unsigned int i = 0; i < _num_particles; i++){
+		std_x += (mean_x - _particles[i].x) * (mean_x - _particles[i].x);
+		std_y += (mean_y - _particles[i].y) * (mean_y - _particles[i].y);
+	}
+	cout << "Std of x is: " << std_x << "Std of y is: " << std_y << endl;
 }
 
 #endif

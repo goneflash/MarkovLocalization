@@ -27,7 +27,7 @@ typedef struct control{
 } control;
 
 typedef struct measurement{
-	float r[RANGE_LEN];
+	float* r;
 } measurement;
 
 class MonteCarloLocalization{
@@ -55,6 +55,7 @@ protected:
 	float _sample_normal_distribution(float b);
 	float _cal_observation_weight(measurement reading, state particle_state);
 	void _low_variance_sampler();
+	void _evaluate_convergence();
 
 #ifdef VIZ
 	Mat _map_image;
