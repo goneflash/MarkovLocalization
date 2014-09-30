@@ -1,7 +1,6 @@
 #include <iostream>
 #include <stdlib.h>
 #include "MonteCarloLocalization.h"
-#include "bee-map.h"
 
 using namespace std;
 
@@ -10,51 +9,31 @@ using namespace std;
 MonteCarloLocalization::MonteCarloLocalization(){
 	_num_particles = 100;
 	_particles = new particle[_num_particles];
-
 }
 
 MonteCarloLocalization::~MonteCarloLocalization(){
 	delete _particles;
 }
 
-MonteCarloLocalization::MonteCarloLocalization(double** map, int sizeX, int sizeY, 
-	int num_particles, double maxX, double minX, double maxY, 
-		double minY, double maxTheta, double minTheta){
+void MonteCarloLocalization::init_map(map_type map){
+	_map = map;
 }
 
-void MonteCarloLocalization::init_map(double** map, int sizeX, int sizeY){
-
-}
-
-void MonteCarloLocalization::_init_particles(){
-
-}
-
-void MonteCarloLocalization::update(){
-
-}
-
-void MonteCarloLocalization::add_measurement(double* range){
-
-}
-
-void MonteCarloLocalization::add_control(double x, double y){
-
-}
-
-void MonteCarloLocalization::_update_motion_model(){
-
-}
-void MonteCarloLocalization::_update_measurement_weight(){
-
-}
-
-double MonteCarloLocalization::_get_particle_weight(int par_id){
-
-}
-
-void MonteCarloLocalization::_low_variance_sampling(){
-
+void MonteCarloLocalization::init_particles(int num_particles){
+	_num_particles = num_particles;
+	// Randomly throw particles
+	srand ( time(NULL) );
+	for (unsigned int i = 0; i < _num_particles; i++){
+		do {
+		_particles[i].x = rand() / (float)RAND_MAX * (_map.max_x - _map.min_x)  + _map.min_x;
+		_particles[i].y = rand() / (float)RAND_MAX * (_map.max_y - _map.min_y)  + _map.min_y;
+		_particles[i].theta = rand() / (float)RAND_MAX * 2 * PI;
+		} while (_map.cells[_particles[i].x][_particles[i].y] < 0.0);
+#ifdef DEBUG
+		cout << "Particle: " << _particles[i].x << " " << _particles[i].y << " ";
+		cout << _particles[i].theta << " Prob " << _map.cells[_particles[i].x][_particles[i].y] << endl;
+#endif
+	}
 }
 
 // Unit Test

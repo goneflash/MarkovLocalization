@@ -1,9 +1,13 @@
 #include <iostream>
+#include "bee-map.h"
 
 using namespace std;
 
+#define PI 3.1415926
+
 typedef struct particle{
-	double x, y, theta;
+	int x, y;
+	float theta;
 	double weight;
 } particle;
 
@@ -19,26 +23,17 @@ class MonteCarloLocalization{
 public:
 	MonteCarloLocalization();
 	~MonteCarloLocalization();
-	MonteCarloLocalization(double** map, int sizeX, int sizeY, int num_particles,
-		double maxX, double minX, double maxY, 
-		double minY, double maxTheta, double minTheta);
-
-	void update();
 
 	// Map
-	void init_map(double** map, int sizeX, int sizeY);
-	// Laser data
-	void add_measurement(double* range);
-	// Odometry data
-	void add_control(double x, double y);
+	void init_map(map_type map);
+	// Particles
+	void init_particles(int num_particles);
 
 protected:
 	int _num_particles;
 	particle* _particles;
-	double _maxX, _maxY, _maxTheta;
-	double _minX, _minY, _minTheta;
 
-	double** _map;
+	map_type _map;
 	double _cm_per_cell;
 
 	measurement _obs_data;
@@ -46,13 +41,5 @@ protected:
 
 
 	bool _viz;
-
-	void _init_particles();
-
-	void _update_motion_model();
-	void _update_measurement_weight();
-
-	double _get_particle_weight(int par_id);
-	void _low_variance_sampling();
 
 };
