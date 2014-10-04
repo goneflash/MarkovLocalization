@@ -7,7 +7,7 @@
 	#include <opencv/cv.h>
 	#include <opencv2/core/core.hpp>
 	#include <opencv2/highgui/highgui.hpp>
-	using namespace cv;
+using namespace cv;
 #endif
 
 using namespace std;
@@ -65,126 +65,158 @@ void MonteCarloLocalization::init_map(map_type map){
 			min_value = min_value <  _map.cells[i][j] ? min_value : _map.cells[i][j];
 		}
 #ifdef DEBUG
-	cout << "Max Value " << max_value << " Min Value " << min_value << endl;
-	imshow("Image", _map_image);
-	waitKey( 0 );
+		cout << "Max Value " << max_value << " Min Value " << min_value << endl;
+		imshow("Image", _map_image);
+		waitKey( 0 );
 #endif
 #endif	
 }
 
 void MonteCarloLocalization::init_particles(int num_particles){
-	_num_particles = num_particles;
-	delete[] _particles;
-	_particles = new particle[_num_particles];
+		_num_particles = num_particles;
+		delete[] _particles;
+		_particles = new particle[_num_particles];
 	// Randomly throw particles
-	for (unsigned int i = 0; i < _num_particles; i++){
-		do {
-		_particles[i].x = rand() / (float)RAND_MAX * (_map.max_x - _map.min_x)  + _map.min_x;
-		_particles[i].y = rand() / (float)RAND_MAX * (_map.max_y - _map.min_y)  + _map.min_y;
-		_particles[i].theta = rand() / (float)RAND_MAX * 2 * PI;
-		} while (_map.cells[(int)_particles[i].x][(int)_particles[i].y] == -1 || 
-			_map.cells[(int)_particles[i].x][(int)_particles[i].y] <= 0.9);
+		for (unsigned int i = 0; i < _num_particles; i++){
+			do {
+				_particles[i].x = rand() / (float)RAND_MAX * (_map.max_x - _map.min_x)  + _map.min_x;
+				_particles[i].y = rand() / (float)RAND_MAX * (_map.max_y - _map.min_y)  + _map.min_y;
+				_particles[i].theta = rand() / (float)RAND_MAX * 2 * PI;
+			} while (_map.cells[(int)_particles[i].x][(int)_particles[i].y] == -1 || 
+				_map.cells[(int)_particles[i].x][(int)_particles[i].y] <= 0.9);
 #ifdef DEBUG
 		// cout << "Particle: " << (int)_particles[i].x << " " << (int)_particles[i].y << " ";
 		// cout << _particles[i].theta << " Prob " << _map.cells[(int)_particles[i].x][(int)_particles[i].y] << endl;
 #endif
-	}
-	_visualize_particles();
+		}
+		_visualize_particles();
 }
 
 void MonteCarloLocalization::init_parameters(float alpha[4]){
-	for (unsigned int i = 0; i < 4; i++)
-		_alpha[i] = alpha[i];
+		for (unsigned int i = 0; i < 4; i++)
+			_alpha[i] = alpha[i];
 }
 
 void MonteCarloLocalization::update_motion(control ctrl){
-	for (unsigned int i = 0; i < _num_particles; i++){
-		state s = {_particles[i].x, _particles[i].y, _particles[i].theta};
-		s = _sample_motion_model_odometry(ctrl, s);
-		_particles[i].x = s.x; _particles[i].y = s.y; _particles[i].theta = s.theta;
+		for (unsigned int i = 0; i < _num_particles; i++){
+			state s = {_particles[i].x, _particles[i].y, _particles[i].theta};
+			s = _sample_motion_model_odometry(ctrl, s);
+			_particles[i].x = s.x; _particles[i].y = s.y; _particles[i].theta = s.theta;
 
 		// TODO:
 		// If out of range or at -1 prob cell
-	}
+		}
 
-	_visualize_particles();
+		_visualize_particles();
 }
 
 void MonteCarloLocalization::update_observation(measurement reading){
-	float weight_sum = 0;
-	for (unsigned int i = 0; i < _num_particles; i++){
-		state s = {_particles[i].x, _particles[i].y, _particles[i].theta}; 
-		_particles[i].weight = _cal_weight_beam_range_model(reading, s);
-		weight_sum += _particles[i].weight;		
-	}
-	// Normalize weights
-	for (unsigned int i = 0; i < _num_particles; i++)
-		_particles[i].weight /= weight_sum;
+		float weight_sum = 0;
+		for (unsigned int i = 0; i < _num_particles; i++){
+			state s = {_particles[i].x, _particles[i].y, _particles[i].theta}; 
+			_particles[i].weight = _cal_observation_weight(reading, s);
 
-	_low_variance_sampler();
+			cout << "Particle " << i << " weight is: " << _particles[i].weight << endl;
+			
+			weight_sum += _particles[i].weight;		
+		}
+	// Normalize weights
+		for (unsigned int i = 0; i < _num_particles; i++)
+			_particles[i].weight /= weight_sum;
+		
+		_low_variance_sampler();
 
 	// TODO:
 	// Try other resampling method
 
-	_evaluate_convergence();
+		_visualize_particle_with_log(_estimated_state(), reading);
 }
 
 float MonteCarloLocalization::_cal_observation_weight(measurement reading, state s){
 	// 25 cm offset
-	float x = s.x + 2.5 * cos(s.theta), y = s.y + 2.5 * sin(s.theta);
+		float x = s.x + 2.5 * cos(s.theta), y = s.y + 2.5 * sin(s.theta);
 	// If wrong position
-	if (x < _map.min_x || x > _map.max_x || 
-		y < _map.min_y || y > _map.max_y || 
-		_map.cells[(int)x][(int)y] == -1 || _map.cells[(int)x][(int)y] < _threshold)
-		return 0.0;	
+		if (x < _map.min_x || x > _map.max_x || 
+			y < _map.min_y || y > _map.max_y || 
+			_map.cells[(int)x][(int)y] == -1 || _map.cells[(int)x][(int)y] < _threshold)
+			return 0.0;	
 	// process each angle
-	float match_score = 0;
-	for (unsigned int i = 0; i < RANGE_LEN; i++){
-		float angle = (float)i * PI / 180 + s.theta;
-		float x_end = reading.r[i] * cos(angle - PI / 2) + x;
-		float y_end = reading.r[i] * sin(angle - PI / 2) + y;
+		float match_score = 0;
+		for (unsigned int i = 0; i < RANGE_LEN; i++){
+			float angle = (float)i * PI / 180 + s.theta;
+			float x_end = reading.r[i] * cos(angle - PI / 2) + x;
+			float y_end = reading.r[i] * sin(angle - PI / 2) + y;
 
-		// cout << "laser end " << x_end << " " << y_end << endl;
-
-		if (x_end < _map.min_x || x_end > _map.max_x || 
-			y_end < _map.min_y || y_end > _map.max_y || _map.cells[(int)x_end][(int)y_end] <= 0)
-			continue;
+			if (x_end < _map.min_x || x_end > _map.max_x || 
+				y_end < _map.min_y || y_end > _map.max_y || _map.cells[(int)x_end][(int)y_end] <= 0)
+				continue;
 
 		// TODO:
 		// Try other methods for example sum of log
 		// sum of 1 - weight 
-		match_score += _map.cells[(int)x_end][(int)y_end] < _threshold ? 1 : 0;
-	}
-	return match_score;
+			match_score += _map.cells[(int)x_end][(int)y_end] < _threshold ? 1 : 0;
+		}
+		return match_score;
 }
 
-float MonteCarloLocalization::_cal_weight_beam_range_model(measurement reading, state particle_state){
-	
+float MonteCarloLocalization::_cal_observation_weight_v1(measurement reading, state s){
+	// 25 cm offset
+	float x = s.x + 2.5 * cos(s.theta), y = s.y + 2.5 * sin(s.theta);
 	float weight = 0;
-	float x = particle_state.x + 2.5 * cos(particle_state.theta);
-	float y = particle_state.y + 2.5 * sin(particle_state.theta);
 
 	// If wrong position
 	if (x < _map.min_x || x > _map.max_x || 
 		y < _map.min_y || y > _map.max_y || 
-		_map.cells[(int)x][(int)y] <= 0 || _map.cells[(int)x][(int)y] < _threshold)
-		return 0.0;	
-
+		_map.cells[(int)round(x)][(int)round(y)] == -1 ||
+		_map.cells[(int)round(x)][(int)round(y)] < 0.9)
+		return 0;	
+	// process each angle
+	
 	for (unsigned int i = 0; i < RANGE_LEN; i++){
-		float angle = (float)i * PI / 180 + particle_state.theta;
+		float angle = (float)i * PI / 180 + s.theta;
 		float x_end = reading.r[i] * cos(angle - PI / 2) + x;
 		float y_end = reading.r[i] * sin(angle - PI / 2) + y;
+		// cout << "laser end " << x_end << " " << y_end << endl;
 		if (x_end < _map.min_x || x_end > _map.max_x || 
-			y_end < _map.min_y || y_end > _map.max_y || _map.cells[(int)x_end][(int)y_end] <= 0)
+			y_end < _map.min_y || y_end > _map.max_y ||
+			_map.cells[(int)round(x)][(int)round(y)] <= 0)
 			continue;
+		// TODO:
+		// Try other methods for example sum of log
+		// sum of 1 - weight 
+		if (_map.cells[(int)round(x)][(int)round(y)] < 0.5)
+			weight++;
+	}
+	return weight;
+}
 
-		float dist_exp = _expected_distance(particle_state, reading.r[i], angle);
+float MonteCarloLocalization::_cal_weight_beam_range_model(measurement reading, state particle_state){
 
-		float likelihood = (_zhit * _sensor_noise(reading.r[i], dist_exp) +
-			_znoise * _random_noise() +
-			_zshort * _unexpected_object(reading.r[i], dist_exp) +
-			_zmax * _max_noise(reading.r[i]));
-		
+		float weight = 0;
+		float x = particle_state.x + 2.5 * cos(particle_state.theta);
+		float y = particle_state.y + 2.5 * sin(particle_state.theta);
+
+	// If wrong position
+		if (x < _map.min_x || x > _map.max_x || 
+			y < _map.min_y || y > _map.max_y || 
+			_map.cells[(int)x][(int)y] <= 0 || _map.cells[(int)x][(int)y] < _threshold)
+			return 0.0;	
+
+		for (unsigned int i = 0; i < RANGE_LEN; i++){
+			float angle = (float)i * PI / 180 + particle_state.theta;
+			float x_end = reading.r[i] * cos(angle - PI / 2) + x;
+			float y_end = reading.r[i] * sin(angle - PI / 2) + y;
+			if (x_end < _map.min_x || x_end > _map.max_x || 
+				y_end < _map.min_y || y_end > _map.max_y || _map.cells[(int)x_end][(int)y_end] <= 0)
+				continue;
+
+			float dist_exp = _expected_distance(particle_state, reading.r[i], angle);
+
+			float likelihood = (_zhit * _sensor_noise(reading.r[i], dist_exp) +
+				_znoise * _random_noise() +
+				_zshort * _unexpected_object(reading.r[i], dist_exp) +
+				_zmax * _max_noise(reading.r[i]));
+
 		weight += log(likelihood);//	(1./len(expected_distances))
 	}
 	return weight;
@@ -287,17 +319,58 @@ float MonteCarloLocalization::_sample_normal_distribution(float b){
 
 void MonteCarloLocalization::_visualize_particles(){
   	// Draw circles
-  	Mat new_image;
-  	_map_image.clone();
-  	cvtColor(_map_image, new_image, CV_GRAY2RGB);
-  	for (unsigned int i = 0; i < _num_particles; i++){
+	Mat new_image;
+	// _map_image.clone();
+	cvtColor(_map_image, new_image, CV_GRAY2RGB);
+	for (unsigned int i = 0; i < _num_particles; i++){
   		// circle(Mat& img, Point center, int radius, const Scalar& color, int thickness=1, int lineType=8, int shift=0)
-  		circle(new_image, Point(_particles[i].y, _particles[i].x), 2, Scalar(0, 0, 255), 2, 8);
-  	}
+		circle(new_image, Point(_particles[i].y, _particles[i].x), 2, Scalar(0, 0, 255), 2, 8);
+	}
   	// circle( image, Point( 200, 200 ), 32.0, Scalar( 0, 0, 255 ), 1, 8 );
-  	imshow("Image", new_image);
-	waitKey( 10 );
+	imshow("Image", new_image);
+	waitKey( 0 );
 	new_image = Mat();
+}
+
+void MonteCarloLocalization::_visualize_particle_with_log(state particle_state, measurement r){
+	// Draw circles
+	Mat new_image;
+	Mat tmp_img = _map_image.clone();
+	cvtColor(_map_image, new_image, CV_GRAY2RGB);
+
+	float x = particle_state.x + 2.5 * cos(particle_state.theta);
+	float y = particle_state.y + 2.5 * sin(particle_state.theta);
+	circle(new_image, Point(y, x), 3, Scalar(0, 0, 255), 2, 8);
+
+	for (unsigned int i = 0; i < RANGE_LEN; i++){
+		float angle = (float)i * PI / 180 + particle_state.theta;
+		for (unsigned int d = 0; d < (int)(r.r[i]); d++){
+			int x_end = (int)(d * cos(angle - PI / 2) + x);
+			int y_end = (int)(d * sin(angle - PI / 2) + y);
+			if (x_end < _map.min_x || x_end > _map.max_x || 
+				y_end < _map.min_y || y_end > _map.max_y)
+				continue;
+			circle(new_image, Point(y_end, x_end), 1, Scalar(255, 0, 255), 2, 8);
+		}
+	}
+
+	imshow("Estimation", new_image);
+	waitKey( 10 );
+}
+
+state MonteCarloLocalization::_estimated_state(){
+	float x_est = 0, y_est = 0, theta_est = 0, weight_sum = 0;
+	for (unsigned int i = 0; i < _num_particles; i++){
+		x_est += _particles[i].x * _particles[i].weight;
+		y_est += _particles[i].y * _particles[i].weight;
+		theta_est += _particles[i].theta * _particles[i].weight;
+		weight_sum += _particles[i].weight;
+	}
+	x_est /= weight_sum;
+	y_est /= weight_sum;
+	theta_est /= weight_sum;
+	state s = {x_est, y_est, theta_est}; 
+	return s;
 }
 
 void MonteCarloLocalization::_evaluate_convergence(){
@@ -316,11 +389,14 @@ void MonteCarloLocalization::_evaluate_convergence(){
 	cout << "Std of x is: " << std_x << "Std of y is: " << std_y << endl;
 }
 
+
 #endif
 
 // Unit Test
 #ifdef PF_UNIT_TEST
 int main(){
+
+
 
 	return 0;
 }

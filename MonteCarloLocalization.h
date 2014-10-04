@@ -44,6 +44,9 @@ public:
 	void update_motion(control ctrl);
 	void update_observation(measurement reading);
 
+	// Estimation
+	
+
 protected:
 	int _num_particles;
 	particle* _particles;
@@ -59,7 +62,10 @@ protected:
 
 	state _sample_motion_model_odometry(control ctrl, state old_state);
 	float _cal_observation_weight(measurement reading, state particle_state);
+	float _cal_observation_weight_v1(measurement reading, state particle_state);
 	float _cal_weight_beam_range_model(measurement reading, state particle_state);
+
+	state _estimated_state();
 
 	float _sample_normal_distribution(float b);
 	float _sensor_noise(float laser_data, float dist_exp);
@@ -73,6 +79,7 @@ protected:
 #ifdef VIZ
 	Mat _map_image;
 	void _visualize_particles();
+	void _visualize_particle_with_log(state , measurement );
 #endif
 
 

@@ -39,13 +39,11 @@ int main(int argc, char **argv){
 #endif
 
 	// Initialization
-	int num_particles = 500;
-	float alpha[4] = {0.1, 0.1, 0.1, 0.1};
-	
+	int num_particles = 1000;
+
 	MonteCarloLocalization localizer;
 	localizer.init_map(map);
 	localizer.init_particles(num_particles); 
-	localizer.init_parameters(alpha);
 
 	// Main Loop
 	measurement reading;
@@ -56,7 +54,7 @@ int main(int argc, char **argv){
 		ctrl.x = logData[i].x; ctrl.y = logData[i].y; ctrl.theta = logData[i].theta;
 	 	ctrl.x_prime = logData[i].xl; ctrl.y_prime = logData[i].yl; ctrl.theta_prime = logData[i].thetal;
 		localizer.update_motion(ctrl);
-
+		
 		// cout << "data type " << logData[i].type << endl;
 		if (logData[i].type != LASER_DATA)
 			continue;
