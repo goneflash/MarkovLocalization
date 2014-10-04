@@ -18,7 +18,7 @@ MonteCarloLocalization::MonteCarloLocalization(){
 	_num_particles = 100;
 	_particles = new particle[_num_particles];
 	_alpha[0] = 0.01;_alpha[1] = 0.01;
-	_alpha[2] = 0.01;_alpha[3] = 0.01;
+	_alpha[2] = 0.1;_alpha[3] = 0.1;
 
 	_threshold = 0.7;
 	_zhit = 0.8;
@@ -123,7 +123,7 @@ void MonteCarloLocalization::update_observation(measurement reading){
 	// Normalize weights
 		for (unsigned int i = 0; i < _num_particles; i++)
 			_particles[i].weight /= weight_sum;
-		
+
 		_low_variance_sampler();
 
 	// TODO:
@@ -288,9 +288,9 @@ state MonteCarloLocalization::_sample_motion_model_odometry(control ctrl, state 
 	float d_tran = sqrt((ctrl.x - ctrl.x_prime) * (ctrl.x - ctrl.x_prime) + (ctrl.y - ctrl.y_prime) * (ctrl.y - ctrl.y_prime));
 	float d_rot2 = ctrl.theta_prime - ctrl.theta - d_rot1; 
 
-	float d_rot1_prime = d_rot1 - _sample_normal_distribution(_alpha[1]*d_rot1 + _alpha[2]*d_tran);
-	float d_tran_prime = d_tran - _sample_normal_distribution(_alpha[3]*d_tran + _alpha[4]*(d_rot1 + d_rot2));
-	float d_rot2_prime = d_rot2 - _sample_normal_distribution(_alpha[1]*d_rot2 + _alpha[2]*d_tran);
+	float d_rot1_prime = d_rot1 - _sample_normal_distribution(_alpha[0]*d_rot1 + _alpha[1]*d_tran);
+	float d_tran_prime = d_tran - _sample_normal_distribution(_alpha[2]*d_tran + _alpha[3]*(d_rot1 + d_rot2));
+	float d_rot2_prime = d_rot2 - _sample_normal_distribution(_alpha[0]*d_rot2 + _alpha[1]*d_tran);
 
 	// TODO:
 	// Try other distribution, triangle distribution
@@ -328,7 +328,7 @@ void MonteCarloLocalization::_visualize_particles(){
 	}
   	// circle( image, Point( 200, 200 ), 32.0, Scalar( 0, 0, 255 ), 1, 8 );
 	imshow("Image", new_image);
-	waitKey( 0 );
+	waitKey( 10 );
 	new_image = Mat();
 }
 

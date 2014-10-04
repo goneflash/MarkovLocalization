@@ -17,6 +17,7 @@ int main(int argc, char **argv){
 	// Set parameters
 	string map_name = "../data/map/wean.dat";
 	string log_name = "../data/log/robotdata1.log";
+	// string log_name = "../data/log/ascii-robotdata2.log";
 
 	vector<log_type> logData;
 	map_type map;
@@ -39,7 +40,7 @@ int main(int argc, char **argv){
 #endif
 
 	// Initialization
-	int num_particles = 2000;
+	int num_particles = 1000;
 
 	MonteCarloLocalization localizer;
 	localizer.init_map(map);
@@ -48,11 +49,11 @@ int main(int argc, char **argv){
 	// Main Loop
 	measurement reading;
 	reading.r = new float[RANGE_LEN];
-	for (unsigned int i = 0; i < logData.size(); i++){
+	for (unsigned int i = 1; i < logData.size(); i++){
 		cout << "Processing frame at: " << logData[i].ts << " " << i << "/" << logData.size() << endl;
 		control ctrl;
-		ctrl.x = logData[i].x; ctrl.y = logData[i].y; ctrl.theta = logData[i].theta;
-	 	ctrl.x_prime = logData[i].xl; ctrl.y_prime = logData[i].yl; ctrl.theta_prime = logData[i].thetal;
+		ctrl.x = logData[i-1].x; ctrl.y = logData[i-1].y; ctrl.theta = logData[i-1].theta;
+	 	ctrl.x_prime = logData[i].x; ctrl.y_prime = logData[i].y; ctrl.theta_prime = logData[i].theta;
 		localizer.update_motion(ctrl);
 		
 		// cout << "data type " << logData[i].type << endl;
