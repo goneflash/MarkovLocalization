@@ -39,7 +39,7 @@ int main(int argc, char **argv){
 #endif
 
 	// Initialization
-	int num_particles = 1000;
+	int num_particles = 2000;
 
 	MonteCarloLocalization localizer;
 	localizer.init_map(map);

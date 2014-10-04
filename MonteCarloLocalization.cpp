@@ -116,7 +116,7 @@ void MonteCarloLocalization::update_observation(measurement reading){
 			state s = {_particles[i].x, _particles[i].y, _particles[i].theta}; 
 			_particles[i].weight = _cal_observation_weight(reading, s);
 
-			cout << "Particle " << i << " weight is: " << _particles[i].weight << endl;
+			// cout << "Particle " << i << " weight is: " << _particles[i].weight << endl;
 			
 			weight_sum += _particles[i].weight;		
 		}
