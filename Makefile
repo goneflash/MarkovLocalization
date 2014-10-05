@@ -1,5 +1,5 @@
 all: map_parser.o log_parser.o main.cpp particle_filter.o
-	g++ -std=c++0x -g main.cpp log_parser.o map_parser.o particle_filter.o -o main `pkg-config --cflags --libs opencv`
+	g++ -std=c++0x -g -D VIZ main.cpp log_parser.o map_parser.o particle_filter.o -o main `pkg-config --cflags --libs opencv`
 
 particle_filter.o: MonteCarloLocalization.cpp MonteCarloLocalization.h
 	g++ -std=c++0x -c -D VIZ MonteCarloLocalization.cpp -o particle_filter.o
