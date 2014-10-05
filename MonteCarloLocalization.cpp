@@ -18,9 +18,9 @@ MonteCarloLocalization::MonteCarloLocalization(){
 	_num_particles = 1000;
 	_particles = new particle[_num_particles];
 	_alpha[0] = 0.02;_alpha[1] = 0.02;
-	_alpha[2] = 0.5;_alpha[3] = 0.5;
+	_alpha[2] = 0.3;_alpha[3] = 0.3;
 
-	_threshold = 0.7;
+	_threshold = 0.75;
 	_zhit = 0.8;
 	_znoise = 0.1;
 	_zshort = 0.095;
@@ -29,8 +29,14 @@ MonteCarloLocalization::MonteCarloLocalization(){
 	_lamda_short = 0.0005;
 	_max_laser_range = 800.0;
 	_min_step = 1;
-	_resampling_freq = 2;
+	_resampling_freq = 2;	
 	_resampling_count = 0;
+
+	_weight_fast = 0;
+	_weight_slow = 0;
+	_weight_avg = 0;	
+	_alpha_fast = 0.1;
+	_alpha_slow = 0.001;
 
 	srand(time(NULL));
 }
@@ -84,7 +90,7 @@ void MonteCarloLocalization::init_particles(int num_particles){
 				_particles[i].x = rand() / (float)RAND_MAX * (_map.max_x - _map.min_x)  + _map.min_x;
 				_particles[i].y = rand() / (float)RAND_MAX * (_map.max_y - _map.min_y)  + _map.min_y;
 				_particles[i].theta = rand() / (float)RAND_MAX * 2 * PI;
-				_particles[i].weight = 1.0 / _num_particles;
+				// _particles[i].weight = 1.0 / _num_particles;
 			} while (_map.cells[(int)_particles[i].x][(int)_particles[i].y] == -1 || 
 				_map.cells[(int)_particles[i].x][(int)_particles[i].y] <= 0.9);
 #ifdef DEBUG
@@ -123,6 +129,7 @@ void MonteCarloLocalization::update_observation(measurement reading){
 			
 			weight_sum += _particles[i].weight;		
 		}
+		_weight_avg = weight_sum / _num_particles;
 	// Normalize weights
 		for (unsigned int i = 0; i < _num_particles; i++)
 			_particles[i].weight /= weight_sum;
@@ -131,12 +138,13 @@ void MonteCarloLocalization::update_observation(measurement reading){
 		if (_resampling_count == _resampling_freq){
 			_resampling_count = 0;
 			_low_variance_sampler();
+			// _augmented_low_variance_sampler();
 		}
+
+		_visualize_particle_with_log(_estimated_state(), reading);
 
 	// TODO:
 	// Try other resampling method
-
-		_visualize_particle_with_log(_estimated_state(), reading);
 }
 
 float MonteCarloLocalization::_cal_observation_weight(measurement reading, state s){
@@ -285,6 +293,51 @@ void MonteCarloLocalization::_low_variance_sampler(){
 			idx++;
 			current_weight += _particles[idx].weight; 
 		}
+		new_pars[i] = _particles[idx];
+	}
+	for (unsigned int i = 0; i < _num_particles; i++)
+		_particles[i] = new_pars[i];
+}
+
+void MonteCarloLocalization::_augmented_low_variance_sampler(){
+	particle* new_pars = new particle[_num_particles];
+	// create a random value to start
+	float r = rand() / (float)RAND_MAX / _num_particles; 
+	int idx = 0;
+	float current_weight = _particles[0].weight;
+	
+	_weight_slow = _weight_slow * (1 - _alpha_slow) + _alpha_slow * (_weight_avg - _weight_slow);
+	_weight_fast = _weight_fast * (1 - _alpha_fast) + _alpha_fast * (_weight_avg - _weight_fast); 
+
+	float randomize_threshold = 0;
+	if (_weight_slow != 0)
+		randomize_threshold = 1.0 - _weight_fast / _weight_slow;
+
+	cout << "randomize_threshold is " << randomize_threshold;
+	cout << " weight fast " << _weight_fast << " weight slow" << _weight_slow << endl;
+
+	randomize_threshold = -1;
+
+	for (unsigned int i = 0; i < _num_particles; i++){
+		float now_total_weight = r + (float)i / _num_particles;
+		while (current_weight < now_total_weight){
+			idx++;
+			current_weight += _particles[idx].weight; 
+		}
+
+		if (randomize_threshold > 0)
+			if ((rand() / (float)RAND_MAX) < randomize_threshold){
+				
+			do {
+				new_pars[i].x = rand() / (float)RAND_MAX * (_map.max_x - _map.min_x)  + _map.min_x;
+				new_pars[i].y = rand() / (float)RAND_MAX * (_map.max_y - _map.min_y)  + _map.min_y;
+				new_pars[i].theta = rand() / (float)RAND_MAX * 2 * PI;
+				new_pars[i].weight = 1.0 / _num_particles;
+			} while (_map.cells[(int)new_pars[i].x][(int)new_pars[i].y] == -1 || 
+				_map.cells[(int)new_pars[i].x][(int)new_pars[i].y] <= 0.9);
+				continue;
+		}
+
 		new_pars[i] = _particles[idx];
 	}
 	for (unsigned int i = 0; i < _num_particles; i++)

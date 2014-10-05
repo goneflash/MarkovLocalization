@@ -61,6 +61,8 @@ protected:
 	float _min_step;
 	int _resampling_freq;
 	int _resampling_count;
+	float _weight_avg, _weight_fast, _weight_slow;
+	float _alpha_fast, _alpha_slow;
 
 	state _sample_motion_model_odometry(control ctrl, state old_state);
 	float _cal_observation_weight(measurement reading, state particle_state);
@@ -76,6 +78,7 @@ protected:
 	float _max_noise(float laser_data);
 	float _expected_distance(state particle_state, float laser, float angle);
 	void _low_variance_sampler();
+	void _augmented_low_variance_sampler();
 	void _evaluate_convergence();
 
 #ifdef VIZ
