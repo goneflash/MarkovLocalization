@@ -15,10 +15,10 @@ using namespace std;
 #define DEBUG
 
 MonteCarloLocalization::MonteCarloLocalization(){
-	_num_particles = 100;
+	_num_particles = 1000;
 	_particles = new particle[_num_particles];
-	_alpha[0] = 0.01;_alpha[1] = 0.01;
-	_alpha[2] = 0.1;_alpha[3] = 0.1;
+	_alpha[0] = 0.02;_alpha[1] = 0.02;
+	_alpha[2] = 0.5;_alpha[3] = 0.5;
 
 	_threshold = 0.7;
 	_zhit = 0.8;
@@ -29,6 +29,8 @@ MonteCarloLocalization::MonteCarloLocalization(){
 	_lamda_short = 0.0005;
 	_max_laser_range = 800.0;
 	_min_step = 1;
+	_resampling_freq = 2;
+	_resampling_count = 0;
 
 	srand(time(NULL));
 }
@@ -82,6 +84,7 @@ void MonteCarloLocalization::init_particles(int num_particles){
 				_particles[i].x = rand() / (float)RAND_MAX * (_map.max_x - _map.min_x)  + _map.min_x;
 				_particles[i].y = rand() / (float)RAND_MAX * (_map.max_y - _map.min_y)  + _map.min_y;
 				_particles[i].theta = rand() / (float)RAND_MAX * 2 * PI;
+				_particles[i].weight = 1.0 / _num_particles;
 			} while (_map.cells[(int)_particles[i].x][(int)_particles[i].y] == -1 || 
 				_map.cells[(int)_particles[i].x][(int)_particles[i].y] <= 0.9);
 #ifdef DEBUG
@@ -124,7 +127,11 @@ void MonteCarloLocalization::update_observation(measurement reading){
 		for (unsigned int i = 0; i < _num_particles; i++)
 			_particles[i].weight /= weight_sum;
 
-		_low_variance_sampler();
+		_resampling_count++;
+		if (_resampling_count == _resampling_freq){
+			_resampling_count = 0;
+			_low_variance_sampler();
+		}
 
 	// TODO:
 	// Try other resampling method
@@ -148,7 +155,7 @@ float MonteCarloLocalization::_cal_observation_weight(measurement reading, state
 			float y_end = reading.r[i] * sin(angle - PI / 2) + y;
 
 			if (x_end < _map.min_x || x_end > _map.max_x || 
-				y_end < _map.min_y || y_end > _map.max_y || _map.cells[(int)x_end][(int)y_end] <= 0)
+				y_end < _map.min_y || y_end > _map.max_y || _map.cells[(int)x_end][(int)y_end] < 0)
 				continue;
 
 		// TODO:
@@ -217,8 +224,9 @@ float MonteCarloLocalization::_cal_weight_beam_range_model(measurement reading, 
 				_zshort * _unexpected_object(reading.r[i], dist_exp) +
 				_zmax * _max_noise(reading.r[i]));
 
-		weight += log(likelihood);//	(1./len(expected_distances))
-	}
+			weight += log(likelihood);//	
+			// weight *= likelihood * (1./len(expected_distances));
+		}
 	return weight;
 }
 

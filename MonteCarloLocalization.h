@@ -59,6 +59,8 @@ protected:
 	float _hit_sigma, _lamda_short;
 	float _max_laser_range;
 	float _min_step;
+	int _resampling_freq;
+	int _resampling_count;
 
 	state _sample_motion_model_odometry(control ctrl, state old_state);
 	float _cal_observation_weight(measurement reading, state particle_state);
