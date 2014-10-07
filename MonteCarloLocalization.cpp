@@ -18,11 +18,7 @@ MonteCarloLocalization::MonteCarloLocalization(){
 	_num_particles = 1000;
 	_particles = new particle[_num_particles];
 	_alpha[0] = 0.02;_alpha[1] = 0.02;
-<<<<<<< HEAD
-	_alpha[2] = 0.5;_alpha[3] = 0.5;
-=======
 	_alpha[2] = 0.25;_alpha[3] = 0.25;
->>>>>>> origin/resampling_improve
 
 	_threshold = 0.75;
 	_zhit = 0.8;
