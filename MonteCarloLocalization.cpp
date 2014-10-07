@@ -318,7 +318,7 @@ void MonteCarloLocalization::_augmented_low_variance_sampler(){
 	cout << "randomize_threshold is " << randomize_threshold;
 	cout << " weight fast " << _weight_fast << " weight slow" << _weight_slow << endl;
 
-	// randomize_threshold = -1;
+	// randomize_threshold = 1;
 
 	for (unsigned int i = 0; i < _num_particles; i++){
 		float now_total_weight = r + (float)i / _num_particles;
@@ -334,9 +334,9 @@ void MonteCarloLocalization::_augmented_low_variance_sampler(){
 				new_pars[i].x = rand() / (float)RAND_MAX * (_map.max_x - _map.min_x)  + _map.min_x;
 				new_pars[i].y = rand() / (float)RAND_MAX * (_map.max_y - _map.min_y)  + _map.min_y;
 				new_pars[i].theta = rand() / (float)RAND_MAX * 2 * PI;
-				new_pars[i].weight = 1.0 / _num_particles;
+				// new_pars[i].weight = 1.0 / _num_particles;
 			} while (_map.cells[(int)new_pars[i].x][(int)new_pars[i].y] == -1 || 
-				_map.cells[(int)new_pars[i].x][(int)new_pars[i].y] <= _threshold);
+				_map.cells[(int)new_pars[i].x][(int)new_pars[i].y] <= 0.9);
 				continue;
 		}
 

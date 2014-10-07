@@ -18,7 +18,10 @@ int main(int argc, char **argv){
 	string map_name = "../data/map/wean.dat";
 	// string log_name = "../data/log/robotdata1.log";
 	// string log_name = "../data/log/ascii-robotdata2.log";
-	string log_name = "../data/log/ascii-robotdata3.log";
+	// string log_name = "../data/log/ascii-robotdata3.log";
+	// string log_name = "../data/log/ascii-robotdata4.log";
+	string log_name = "../data/log/kidnapped-robotdata.log";
+	
 
 	vector<log_type> logData;
 	map_type map;
