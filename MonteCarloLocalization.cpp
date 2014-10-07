@@ -74,7 +74,8 @@ void MonteCarloLocalization::init_map(map_type map){
 		}
 #ifdef DEBUG
 		cout << "Max Value " << max_value << " Min Value " << min_value << endl;
-		imshow("Image", _map_image);
+		imshow("Particles", _map_image);
+		imshow("Estimation", _map_image);
 		waitKey( 0 );
 #endif
 #endif	
@@ -388,7 +389,7 @@ void MonteCarloLocalization::_visualize_particles(){
 		circle(new_image, Point(_particles[i].y, _particles[i].x), 2, Scalar(0, 0, 255), 2, 8);
 	}
   	// circle( image, Point( 200, 200 ), 32.0, Scalar( 0, 0, 255 ), 1, 8 );
-	imshow("Image", new_image);
+	imshow("Particles", new_image);
 	waitKey( 10 );
 	new_image = Mat();
 }
