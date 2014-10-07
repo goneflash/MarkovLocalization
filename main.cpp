@@ -41,12 +41,15 @@ int main(int argc, char **argv){
 #endif
 
 	// Initialization
-	int num_particles = 1000;
+	int num_particles = 1500;
 
 	MonteCarloLocalization localizer;
 	localizer.init_map(map);
 	localizer.init_particles(num_particles); 
 
+
+	namedWindow( "Estimation", WINDOW_AUTOSIZE );
+	namedWindow( "Particles", WINDOW_AUTOSIZE );
 	// Main Loop
 	measurement reading;
 	reading.r = new float[RANGE_LEN];
@@ -60,7 +63,7 @@ int main(int argc, char **argv){
 		// cout << "data type " << logData[i].type << endl;
 		if (logData[i].type != LASER_DATA)
 			continue;
-		cout << "It's laser data." << endl;
+		// cout << "It's laser data." << endl;
 
 
 		for (unsigned int angle = 0; angle < 180; angle++){
@@ -74,6 +77,8 @@ int main(int argc, char **argv){
 		localizer.update_observation(reading);
 	}
 
+
+	waitKey( 0 );
 	// Clean Up
 	free(map.cells);
 	// delete reading.r;
