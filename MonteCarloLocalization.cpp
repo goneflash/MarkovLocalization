@@ -17,8 +17,8 @@ using namespace std;
 MonteCarloLocalization::MonteCarloLocalization(){
 	_num_particles = 1000;
 	_particles = new particle[_num_particles];
-	_alpha[0] = 0.02;_alpha[1] = 0.02;
-	_alpha[2] = 0.25;_alpha[3] = 0.25;
+	_alpha[0] = 0.02;_alpha[1] = 0.2;
+	_alpha[2] = 0.3;_alpha[3] = 0.3;
 
 	_threshold = 0.75;
 	_zhit = 0.8;
@@ -36,7 +36,7 @@ MonteCarloLocalization::MonteCarloLocalization(){
 	_weight_slow = 0;
 	_weight_avg = 0;	
 	_alpha_fast = 0.1;
-	_alpha_slow = 0.002;
+	_alpha_slow = 0.01;
 
 	srand(time(NULL));
 }
@@ -316,8 +316,8 @@ void MonteCarloLocalization::_augmented_low_variance_sampler(){
 	if (_weight_slow != 0)
 		randomize_threshold = 1.0 - _weight_fast / _weight_slow;
 
-	cout << "randomize_threshold is " << randomize_threshold;
-	cout << " weight fast " << _weight_fast << " weight slow" << _weight_slow << endl;
+	cout << "randomize_threshold is " << randomize_threshold << endl;
+	// cout << " weight fast " << _weight_fast << " weight slow" << _weight_slow << endl;
 
 	// randomize_threshold = 1;
 

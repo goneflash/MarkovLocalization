@@ -18,9 +18,9 @@ int main(int argc, char **argv){
 	string map_name = "../data/map/wean.dat";
 	// string log_name = "../data/log/robotdata1.log";
 	// string log_name = "../data/log/ascii-robotdata2.log";
-	// string log_name = "../data/log/ascii-robotdata3.log";
+	string log_name = "../data/log/ascii-robotdata3.log";
 	// string log_name = "../data/log/ascii-robotdata4.log";
-	string log_name = "../data/log/kidnapped-robotdata.log";
+	// string log_name = "../data/log/kidnapped-robotdata.log";
 	
 
 	vector<log_type> logData;
@@ -44,7 +44,7 @@ int main(int argc, char **argv){
 #endif
 
 	// Initialization
-	int num_particles = 1500;
+	int num_particles = 1000;
 
 
 	MonteCarloLocalization localizer;
